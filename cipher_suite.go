@@ -3,6 +3,7 @@ package noise
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
@@ -34,6 +35,9 @@ type DHFunc interface {
 
 	// DHLen is the number of bytes returned by DH.
 	DHLen() int
+
+	// PubLen is the number of bytes in a public key
+	PubLen() int
 
 	// DHName is the name of the DH function.
 	DHName() string
@@ -125,7 +129,59 @@ func (dh25519) DH(privkey, pubkey []byte) []byte {
 }
 
 func (dh25519) DHLen() int     { return 32 }
+func (dh25519) PubLen() int    { return 32 }
 func (dh25519) DHName() string { return "25519" }
+
+// DHP256 is the NIST P-256 ECDH function
+var DHP256 DHFunc = newDHCurve("P256", elliptic.P256())
+
+type dhCurve struct {
+	name   string
+	curve  elliptic.Curve
+	dhLen  int
+	pubLen int
+}
+
+func newDHCurve(name string, curve elliptic.Curve) dhCurve {
+	byteLen := (curve.Params().BitSize + 7) >> 3
+	return dhCurve{
+		name:   name,
+		curve:  curve,
+		dhLen:  byteLen,
+		pubLen: 1 + 2*byteLen,
+	}
+}
+
+func (c dhCurve) GenerateKeypair(rng io.Reader) (DHKey, error) {
+	if rng == nil {
+		rng = rand.Reader
+	}
+	privkey, x, y, err := elliptic.GenerateKey(c.curve, rng)
+	if err != nil {
+		return DHKey{}, err
+	}
+	pubkey := elliptic.Marshal(c.curve, x, y)
+	return DHKey{Private: privkey, Public: pubkey}, nil
+}
+
+func (c dhCurve) DH(privkey, pubkey []byte) []byte {
+	// based on crypto/tls/key_schedule.go
+	x, y := elliptic.Unmarshal(c.curve, pubkey)
+	if x == nil {
+		return nil
+	}
+
+	xShared, _ := c.curve.ScalarMult(x, y, privkey)
+	sharedKey := make([]byte, c.dhLen)
+	xBytes := xShared.Bytes()
+	copy(sharedKey[len(sharedKey)-len(xBytes):], xBytes)
+
+	return sharedKey
+}
+
+func (c dhCurve) DHLen() int     { return c.dhLen }
+func (c dhCurve) PubLen() int    { return c.pubLen }
+func (c dhCurve) DHName() string { return c.name }
 
 type cipherFn struct {
 	fn   func([32]byte) Cipher
