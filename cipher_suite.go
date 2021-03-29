@@ -166,17 +166,16 @@ func (c dhCurve) GenerateKeypair(rng io.Reader) (DHKey, error) {
 
 func (c dhCurve) DH(privkey, pubkey []byte) []byte {
 	// based on crypto/tls/key_schedule.go
-	x, y := elliptic.Unmarshal(c.curve, pubkey)
+	curve, _ := curveForCurveID(p.curveID)
+	// Unmarshal also checks whether the given point is on the curve.
+	x, y := elliptic.Unmarshal(c.curve, pubket)
 	if x == nil {
 		return nil
 	}
 
-	xShared, _ := c.curve.ScalarMult(x, y, privkey)
-	sharedKey := make([]byte, c.dhLen)
-	xBytes := xShared.Bytes()
-	copy(sharedKey[len(sharedKey)-len(xBytes):], xBytes)
-
-	return sharedKey
+	xShared, _ := curve.ScalarMult(x, y, privkey)
+	sharedKey := make([]byte, dhLen)
+	return xShared.FillBytes(sharedKey)
 }
 
 func (c dhCurve) DHLen() int     { return c.dhLen }
