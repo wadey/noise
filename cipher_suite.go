@@ -138,14 +138,15 @@ func (c cipherFn) CipherName() string       { return c.name }
 // CipherAESGCM is the AES256-GCM AEAD cipher.
 var CipherAESGCM CipherFunc = cipherFn{cipherAESGCM, "AESGCM"}
 
-// goboringAESGCMTLS is used to detect BoringCrypto. It contains NewGCMTLS, the
+// gcmtls is used to detect BoringCrypto. It contains NewGCMTLS, the
 // method exposed when building with goboring that uses a validated mode of
 // AES-GCM which enforces the nonce is strictly monotonically increasing.
 //
+// - https://github.com/golang/go/blob/6d5f0ffc93e5810855bbc273a2a73e8f63d0453c/src/crypto/tls/cipher_suites.go#L340-L342
 // - https://github.com/golang/go/blob/6d5f0ffc93e5810855bbc273a2a73e8f63d0453c/src/crypto/internal/boring/aes.go#L78-L79
 // - https://github.com/golang/go/blob/6d5f0ffc93e5810855bbc273a2a73e8f63d0453c/src/crypto/internal/boring/aes.go#L255
 // - https://github.com/google/boringssl/blob/ae223d6138807a13006342edfeef32e813246b39/crypto/fipsmodule/cipher/e_aes.c#L1082-L1093
-type goboringAESGCMTLS interface {
+type gcmtls interface {
 	NewGCMTLS() (cipher.AEAD, error)
 }
 
@@ -155,7 +156,7 @@ func cipherAESGCM(k [32]byte) Cipher {
 		panic(err)
 	}
 	var gcm cipher.AEAD
-	if aesTLS, ok := c.(goboringAESGCMTLS); ok {
+	if aesTLS, ok := c.(gcmtls); ok {
 		gcm, err = aesTLS.NewGCMTLS()
 	} else {
 		gcm, err = cipher.NewGCM(c)
