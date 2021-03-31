@@ -143,6 +143,8 @@ var CipherAESGCM CipherFunc = cipherFn{cipherAESGCM, "AESGCM"}
 // which enforces the nonce is strictly monotonically increasing.
 //
 // - https://github.com/golang/go/blob/6d5f0ffc93e5810855bbc273a2a73e8f63d0453c/src/crypto/internal/boring/aes.go#L78-L79
+// - https://github.com/golang/go/blob/6d5f0ffc93e5810855bbc273a2a73e8f63d0453c/src/crypto/internal/boring/aes.go#L255
+// - https://github.com/google/boringssl/blob/ae223d6138807a13006342edfeef32e813246b39/crypto/fipsmodule/cipher/e_aes.c#L1082-L1093
 type AESGCMTLS interface {
 	NewGCMTLS() (cipher.AEAD, error)
 }
