@@ -133,18 +133,18 @@ func (dh25519) PubLen() int    { return 32 }
 func (dh25519) DHName() string { return "25519" }
 
 // DHP256 is the NIST P-256 ECDH function
-var DHP256 DHFunc = newDHCurve("P256", elliptic.P256())
+var DHP256 DHFunc = newNISTCurve("P256", elliptic.P256())
 
-type dhCurve struct {
+type nistCurve struct {
 	name   string
 	curve  elliptic.Curve
 	dhLen  int
 	pubLen int
 }
 
-func newDHCurve(name string, curve elliptic.Curve) dhCurve {
-	byteLen := (curve.Params().BitSize + 7) >> 3
-	return dhCurve{
+func newNISTCurve(name string, curve elliptic.Curve) nistCurve {
+	byteLen := (curve.Params().BitSize + 7) / 8
+	return nistCurve{
 		name:   name,
 		curve:  curve,
 		dhLen:  byteLen,
@@ -152,7 +152,7 @@ func newDHCurve(name string, curve elliptic.Curve) dhCurve {
 	}
 }
 
-func (c dhCurve) GenerateKeypair(rng io.Reader) (DHKey, error) {
+func (c nistCurve) GenerateKeypair(rng io.Reader) (DHKey, error) {
 	if rng == nil {
 		rng = rand.Reader
 	}
@@ -164,7 +164,7 @@ func (c dhCurve) GenerateKeypair(rng io.Reader) (DHKey, error) {
 	return DHKey{Private: privkey, Public: pubkey}, nil
 }
 
-func (c dhCurve) DH(privkey, pubkey []byte) []byte {
+func (c nistCurve) DH(privkey, pubkey []byte) []byte {
 	// based on crypto/tls/key_schedule.go
 	// Unmarshal also checks whether the given point is on the curve.
 	x, y := elliptic.Unmarshal(c.curve, pubkey)
@@ -177,9 +177,9 @@ func (c dhCurve) DH(privkey, pubkey []byte) []byte {
 	return xShared.FillBytes(sharedKey)
 }
 
-func (c dhCurve) DHLen() int     { return c.dhLen }
-func (c dhCurve) PubLen() int    { return c.pubLen }
-func (c dhCurve) DHName() string { return c.name }
+func (c nistCurve) DHLen() int     { return c.dhLen }
+func (c nistCurve) PubLen() int    { return c.pubLen }
+func (c nistCurve) DHName() string { return c.name }
 
 type cipherFn struct {
 	fn   func([32]byte) Cipher
