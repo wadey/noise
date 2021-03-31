@@ -192,12 +192,26 @@ func (c cipherFn) CipherName() string       { return c.name }
 // CipherAESGCM is the AES256-GCM AEAD cipher.
 var CipherAESGCM CipherFunc = cipherFn{cipherAESGCM, "AESGCM"}
 
+// AESGCMTLS is used to detect BoringCrypto. It contains NewGCMTLS, the method
+// exposed when building with goboring that uses a validated mode of AES-GCM
+// which enforces the nonce is strictly monotonically increasing.
+//
+// - https://github.com/golang/go/blob/6d5f0ffc93e5810855bbc273a2a73e8f63d0453c/src/crypto/internal/boring/aes.go#L78-L79
+type AESGCMTLS interface {
+	NewGCMTLS() (cipher.AEAD, error)
+}
+
 func cipherAESGCM(k [32]byte) Cipher {
 	c, err := aes.NewCipher(k[:])
 	if err != nil {
 		panic(err)
 	}
-	gcm, err := cipher.NewGCM(c)
+	var gcm cipher.AEAD
+	if aesTLS, ok := c.(AESGCMTLS); ok {
+		gcm, err = aesTLS.NewGCMTLS()
+	} else {
+		gcm, err = cipher.NewGCM(c)
+	}
 	if err != nil {
 		panic(err)
 	}
