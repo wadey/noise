@@ -132,9 +132,10 @@ func (dh25519) DHName() string { return "25519" }
 var DHP256 DHFunc = newNISTCurve("P256", elliptic.P256())
 
 type nistCurve struct {
-	name  string
-	curve elliptic.Curve
-	dhLen int
+	name   string
+	curve  elliptic.Curve
+	dhLen  int
+	pubLen int
 }
 
 func newNISTCurve(name string, curve elliptic.Curve) nistCurve {
@@ -142,7 +143,9 @@ func newNISTCurve(name string, curve elliptic.Curve) nistCurve {
 	return nistCurve{
 		name:  name,
 		curve: curve,
-		dhLen: 1 + 2*byteLen,
+		dhLen: byteLen,
+		// Standard uncompressed format, type (1 byte) plus both coordinates
+		pubLen: 1 + 2*byteLen,
 	}
 }
 
@@ -159,7 +162,8 @@ func (c nistCurve) GenerateKeypair(rng io.Reader) (DHKey, error) {
 }
 
 func (c nistCurve) DH(privkey, pubkey []byte) []byte {
-	// based on crypto/tls/key_schedule.go
+	// based on stdlib crypto/tls/key_schedule.go
+	// - https://github.com/golang/go/blob/6d5f0ffc93e5810855bbc273a2a73e8f63d0453c/src/crypto/tls/key_schedule.go#L167-L178
 	// Unmarshal also checks whether the given point is on the curve.
 	x, y := elliptic.Unmarshal(c.curve, pubkey)
 	if x == nil {
@@ -171,7 +175,17 @@ func (c nistCurve) DH(privkey, pubkey []byte) []byte {
 	return xShared.FillBytes(sharedKey)
 }
 
-func (c nistCurve) DHLen() int     { return c.dhLen }
+func (c nistCurve) DHLen() int {
+	// NOTE: Noise Protocol specifies "DHLen" to represent two things:
+	// - The size of the public key
+	// - The return size of the DH() function
+	// But for standard NIST ECDH, the sizes of these are different.
+	// Luckily, the flynn/noise library actually only uses this DHLen()
+	// value to represent the public key size, so that is what we are
+	// returning here. The length of the DH() return bytes are unaffected by
+	// this value here.
+	return c.pubLen
+}
 func (c nistCurve) DHName() string { return c.name }
 
 type cipherFn struct {
