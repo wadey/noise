@@ -36,9 +36,6 @@ type DHFunc interface {
 	// DHLen is the number of bytes returned by DH.
 	DHLen() int
 
-	// PubLen is the number of bytes in a public key
-	PubLen() int
-
 	// DHName is the name of the DH function.
 	DHName() string
 }
@@ -129,26 +126,23 @@ func (dh25519) DH(privkey, pubkey []byte) []byte {
 }
 
 func (dh25519) DHLen() int     { return 32 }
-func (dh25519) PubLen() int    { return 32 }
 func (dh25519) DHName() string { return "25519" }
 
 // DHP256 is the NIST P-256 ECDH function
 var DHP256 DHFunc = newNISTCurve("P256", elliptic.P256())
 
 type nistCurve struct {
-	name   string
-	curve  elliptic.Curve
-	dhLen  int
-	pubLen int
+	name  string
+	curve elliptic.Curve
+	dhLen int
 }
 
 func newNISTCurve(name string, curve elliptic.Curve) nistCurve {
 	byteLen := (curve.Params().BitSize + 7) / 8
 	return nistCurve{
-		name:   name,
-		curve:  curve,
-		dhLen:  byteLen,
-		pubLen: 1 + 2*byteLen,
+		name:  name,
+		curve: curve,
+		dhLen: 1 + 2*byteLen,
 	}
 }
 
@@ -178,7 +172,6 @@ func (c nistCurve) DH(privkey, pubkey []byte) []byte {
 }
 
 func (c nistCurve) DHLen() int     { return c.dhLen }
-func (c nistCurve) PubLen() int    { return c.pubLen }
 func (c nistCurve) DHName() string { return c.name }
 
 type cipherFn struct {
